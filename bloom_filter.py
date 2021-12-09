@@ -1,51 +1,46 @@
-import numpy as np
-import mmh3
+import math
+from bitarray import bitarray
 
 
-class BloomFilter:
-    def __init__(self, size, hashes):
-        self._size = size
-        self._hashes = hashes
-        self._bits = np.empty(size, dtype='bool')
+class BloomFilter(object):
 
-    def _hash(self, data):
-        return mmh3.hash64(data)
+    def __init__(self, size, number_expected_elements=100000):
+        self.size = size
+        self.number_expected_elements = number_expected_elements
 
-    def _nth_hash(self, n, a, b, size):
-        return (a + n * b) % size
+        self.bloom_filter = bitarray(self.size)
+        self.bloom_filter.setall(0)
 
-    def add(self, data):
-        values = self._hash(data)
-
-        for i in range(self._hashes):
-            self._bits[self._nth_hash(i, values[0], values[1], self._size)] = True
-
-    def possibly_contains(self, data):
-        values = self._hash(data)
-
-        for i in range(self._hashes):
-            if not self._bits[self._nth_hash(i, values[0], values[1], self._size)]:
-                return False
-
-        return True
-
-    def remove(self, data):
-        values = self._hash(data)
-
-        for i in range(self._hashes):
-            self._bits[self._nth_hash(i, values[0], values[1], self._size)] = False
+        self.number_hash_functions = round((self.size / self.number_expected_elements) * math.log(2))
 
 
-def main():
-    bloom = BloomFilter(100, 3)
-    bloom.add('abcd'.encode())
-    bloom.add('bcde'.encode())
-    print(bloom.possibly_contains('cdef'.encode()))
-    print(bloom.possibly_contains('abcd'.encode()))
-    print(bloom.possibly_contains('bcde'.encode()))
-    bloom.remove('bcde')
-    print(bloom.possibly_contains('bcde'.encode()))
+    def _hash_djb2(self, s):
+        hash = 5381
+        for x in s:
+            hash = ((hash << 5) + hash) + ord(x)
+        return hash % self.size
 
 
-if __name__ == '__main__':
-    main()
+    def _hash(self, item, K):
+        return self._hash_djb2(str(K) + item)
+
+
+    def add_to_filter(self, item):
+        for i in range(self.number_hash_functions):
+            self.bloom_filter[self._hash(item, i)] = 1
+
+
+    def check_is_not_in_filter(self, item):
+        for i in range(self.number_hash_functions):
+            if self.bloom_filter[self._hash(item, i)] == 0:
+                return True
+        return False
+
+
+bloom_filter = BloomFilter(1000000, 100000)
+base_ip = "192.168.1."
+bloom_filter.add_to_filter(base_ip + str(1))
+
+for i in range(1, 100000):
+    if not bloom_filter.check_is_not_in_filter(base_ip + str(i)):
+        print(base_ip+str(i))

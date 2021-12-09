@@ -1,6 +1,3 @@
-from typing import MutableSet
-
-
 def kruskal(adj_matrix):
     inc_matrix = adj_to_inc(adj_matrix)
     inc_matrix.sort(key=lambda item: item[2])
